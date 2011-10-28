@@ -1,6 +1,6 @@
 from datetime import datetime
 from django.http import HttpRequest, HttpResponseBadRequest
-from dimagi.utils.dates import DateSpan
+from dimagi.utils.dates import DateSpan, utctime
 from datetime import datetime
 
 def datespan_in_request(from_param="from", to_param="to", 
@@ -9,7 +9,6 @@ def datespan_in_request(from_param="from", to_param="to",
     Wraps a request with dates based on url params or defaults and
     Checks date validity.
     """
-    
     # this is loosely modeled after example number 4 of decorator
     # usage here: http://www.python.org/dev/peps/pep-0318/
     def get_dates(f):
@@ -29,9 +28,9 @@ def datespan_in_request(from_param="from", to_param="to",
             if req:
                 dict = req.POST if req.method == "POST" else req.GET
                 def date_or_nothing(param):
-                    return datetime.strptime(dict[param], format_string)\
-                             if param in dict and dict[param] else None
-                try:             
+                    return utctime(datetime.strptime(dict[param], format_string))\
+                        if param in dict and dict[param] else None
+                try:
                     startdate = date_or_nothing(from_param)
                     enddate = date_or_nothing(to_param)
                 except ValueError, e:

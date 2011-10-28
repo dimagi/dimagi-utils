@@ -1,3 +1,6 @@
+from __future__ import absolute_import
+import pytz
+from django.conf import settings
 from datetime import date, datetime, timedelta, time
 from calendar import month_name
 from dimagi.utils.logging import log_exception
@@ -56,8 +59,19 @@ def delta_secs(td):
     """convert a timedelta to seconds"""
     return 86400. * td.days + td.seconds + 1.0e-6 * td.microseconds
 
+localtz = pytz.timezone(settings.TIME_ZONE)
+utc = pytz.timezone('UTC')
 
-DEFAULT_DATE_FORMAT = "%m/%d/%Y"
+def localtime(dt):
+    """ convert a given utc datetime to local time """
+    return dt.astimezone(localtz)
+    
+def utctime(dt):
+    """ convert a given utc datetime to local time """
+    return utc.localize(dt)
+    
+
+DEFAULT_DATE_FORMAT = "%Y-%m-%d"
     
 class DateSpan(object):
     """
@@ -70,6 +84,10 @@ class DateSpan(object):
         self.format = format
         self.inclusive = inclusive
         self.is_default = False
+        # for now, this is where i'm converting between python date formatting (output)
+        # and javascript date formatting (input). ideally this would go inside
+        # dateformat.js... if only i could figure out where.
+        self.js_format = format.replace('%','').replace('Y','yyyy')
     
     @property
     def startdate_param(self):
@@ -79,27 +97,33 @@ class DateSpan(object):
     @property
     def startdate_display(self):
         if self.startdate:
-            return self.startdate.strftime(self.format)
+            return localtime(self.startdate).strftime(self.format)
 
     @property
     def enddate_param(self):
-        if self.enddate:
-            # you need to add a day to enddate if your dates are meant to be inclusive
-            offset = timedelta(days=1 if self.inclusive else 0)
-            return (self.enddate + offset).strftime(self.format)
-
+        """ returns enddate to be used as a parameter in string format """
+        return self._enddate_param().strftime(self.format)
+ 
     @property
     def end_of_end_day(self):
         if self.enddate:
             # if we are doing a 'day' query, we want to make sure 
             # the end date is the last second of the end day
-            return self.enddate.replace(hour=23, minute=59, second=59, microsecond=1000000-1)
+            return self._enddate_param().replace(hour=23, minute=59, second=59, microsecond=1000000-1)
 
     @property
     def enddate_display(self):
+        """ display the end date in LOCAL TIME """
         if self.enddate:
-            return self.enddate.strftime(self.format)
-    
+            return localtime(self._enddate_param()).strftime(self.format)
+        
+    def _enddate_param(self):
+        """ returns enddate to be used as a parameter in date format """
+        if self.enddate:
+            # you need to add a day to enddate if your dates are meant to be inclusive
+            offset = timedelta(days=1 if self.inclusive else 0)
+            return (self.enddate + offset)
+
     def is_valid(self):
         # this is a bit backwards but keeps the logic in one place
         return not bool(self.get_validation_reason())
@@ -121,7 +145,7 @@ class DateSpan(object):
             return "%s %s" % (month_name[self.startdate.month], self.startdate.year)
 
         # if the end date is today or tomorrow, use "last N days syntax"  
-        today = datetime.combine(datetime.today(), time())
+        today = utctime(datetime.utcnow())
         day_after_tomorrow = today + timedelta (days=2)
         if today <= self.enddate < day_after_tomorrow:
             return "last %s days" % (self.enddate - self.startdate).days
@@ -150,10 +174,9 @@ class DateSpan(object):
         """
         if enddate is None:
             enddate = datetime.utcnow()
-        end = datetime(enddate.year, enddate.month, enddate.day)
+        end = utctime(datetime(enddate.year, enddate.month, enddate.day))
         start = end - timedelta(days=days)
-        return DateSpan(start, end, format)
-                    
+        return DateSpan(start, end, format)                    
     
     def parse(self, startdate_str, enddate_str, parse_format, display_format=None):
         """

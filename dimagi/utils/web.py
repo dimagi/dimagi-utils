@@ -25,6 +25,10 @@ def get_secure_url_base():
     return 'https://%s' % Site.objects.get(id = settings.SITE_ID).domain
 
 def render_to_response(req, template_name, dictionary=None, **kwargs):
+    """This is a legacy function that shouldn't be changed or called anywhere new."""
+
+    raise DeprecationWarning("Use django.shortcuts.render in Django>=1.3")
+
     """Proxies calls to django.shortcuts.render_to_response, to avoid having
        to include the global variables in every request. This is a giant hack,
        and there's probably a much better solution."""
@@ -74,6 +78,11 @@ def render_to_response(req, template_name, dictionary=None, **kwargs):
 
 
 def paginated(req, query_set, per_page=20, prefix="", wrapper=None):
+    """
+    This isn't used in CommCare HQ.  Leaving it in in case something else
+    uses it.  Probably not.
+
+    """
 
     # since the behavior of this function depends on
     # the GET parameters, if there is more than one
@@ -121,6 +130,8 @@ def paginated(req, query_set, per_page=20, prefix="", wrapper=None):
 
 
 def self_link(req, **kwargs):
+    """Not used by anything in CommCare HQ."""
+
     new_kwargs = req.GET.copy()
 
     # build a new querydict using the GET params from the
@@ -136,6 +147,8 @@ def self_link(req, **kwargs):
     return "%s?%s" % (req.path, kwargs_enc)
 
 def web_message(req, msg, link=None):
+    """Not used by anything in CommCare HQ."""
+
     return render_to_response(req,
         "message.html", {
             "message": msg,

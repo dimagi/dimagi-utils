@@ -27,7 +27,7 @@ def get_secure_url_base():
 def render_to_response(req, template_name, dictionary=None, **kwargs):
     """This is a legacy function that shouldn't be changed or called anywhere new."""
 
-    raise DeprecationWarning("Use django.shortcuts.render in Django>=1.3")
+    print "Deprecated, use django.shortcuts.render in Django>=1.3"
 
     """Proxies calls to django.shortcuts.render_to_response, to avoid having
        to include the global variables in every request. This is a giant hack,

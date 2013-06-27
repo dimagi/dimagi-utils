@@ -53,7 +53,12 @@ class LazyAttachmentDoc(Document):
             info = self._LAZY_ATTACHMENTS[name]
             return info['content']
         except KeyError:
-            return self.fetch_attachment(name)
+            content = self.fetch_attachment(name)
+            info = self._attachments[name]
+            self.__store_lazy_attachment(content, name, info['content_type'],
+                                         info['length'])
+            return content
+
 
     def lazy_list_attachments(self):
         keys = set()

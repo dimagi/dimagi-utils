@@ -323,19 +323,6 @@ class DateSpan(object):
         enddate = date_or_nothing(enddate_str)
         return DateSpan(startdate, enddate, format)
 
-    def months_iterator(self):
-        """
-        Iterate over (year, month) pairs (inclusive) in this datespan.
-        """
-        for year in range(self.startdate.year, self.enddate.year + 1):
-            startmonth = 1
-            endmonth = 12
-            if year == int(self.startdate.year):
-                startmonth = self.startdate.month
-            if year == int(self.enddate.year):
-                endmonth = self.enddate.month
-            for month in range(startmonth, endmonth + 1):
-                yield (year, month)
 
 def is_business_day(day):
     """

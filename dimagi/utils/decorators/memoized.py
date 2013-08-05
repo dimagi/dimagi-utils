@@ -1,7 +1,10 @@
 # See http://wiki.python.org/moin/PythonDecoratorLibrary#Memoize
+import collections
 import functools
 from inspect import getargspec, ismethod, isfunction
 import sys
+import datetime
+
 
 def memoized(fn):
     m = Memoized(fn)
@@ -84,7 +87,7 @@ class Memoized(object):
     Computing full name
     'Joe Schmoe'
     """
-    def __init__(self, func):
+    def __init__(self, func, cache=None):
 
         if isfunction(func):
             self.func = func
@@ -97,7 +100,7 @@ class Memoized(object):
             self.is_method = True
         else:
             self.is_method = False
-            self._cache = {}
+            self._cache = cache or {}
 
     def get_cache(self, obj=None):
         if self.is_method:
@@ -145,6 +148,34 @@ class Memoized(object):
         if kwargs_name:
             in_order.append(tuple(sorted(values[kwargs_name].items())))
         return tuple(in_order)
+
+
+class EvictingCache(object):
+    def __init__(self, expiry, max_size):
+        self.cache = {}
+        self.expiry = datetime.timedelta(seconds=expiry)
+        self.max_size = max_size
+
+    def __getitem__(self, item):
+        time, value = self.cache[item]
+        if datetime.datetime.now() - time < self.expiry:
+            return value
+        else:
+            del self.cache[item]
+            raise KeyError('Cache expired')
+
+    def __setitem__(self, key, value):
+        self.cache[key] = (datetime.datetime.now(), value)
+        if len(self.cache) > self.max_size:
+            self.cache.popitem()
+
+
+def limited_memoized(expiry, max_size):
+    return functools.partial(
+        Memoized,
+        cache=EvictingCache(expiry=expiry, max_size=max_size)
+    )
+
 
 try:
     from inspect import getcallargs

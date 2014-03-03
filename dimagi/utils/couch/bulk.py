@@ -3,6 +3,7 @@ import json
 import logging
 import requests
 from dimagi.utils.requestskit import get_auth
+from sqlcouch.models import SQLDocDB
 
 
 class CouchTransaction(object):
@@ -79,6 +80,9 @@ class CouchTransaction(object):
 
 
 def get_docs(db, keys):
+    if isinstance(db, SQLDocDB):
+        from sqlcouch.sync import sync_all
+        sync_all()
     payload = json.dumps({'keys': keys})
     url = db.uri + '/_all_docs?include_docs=true'
 

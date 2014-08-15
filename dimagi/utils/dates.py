@@ -64,11 +64,13 @@ def months_between(start, end):
     the year and month of the end date.
     """
     assert(start <= end)
+    if type(start) == datetime.datetime:
+        start, end = start.date(), end.date()
     months = []
     while start <= end:
         months.append((start.year, start.month))
         (yearnext, monthnext) = add_months(start.year, start.month, 1)
-        start = datetime.datetime(yearnext, monthnext, 1)
+        start = datetime.date(yearnext, monthnext, 1)
     return months        
 
 

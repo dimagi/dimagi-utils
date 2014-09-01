@@ -3,6 +3,7 @@ import csv
 from tempfile import NamedTemporaryFile
 import openpyxl
 
+from dimagi.utils.translations import get_translation
 
 # a *DictReader responsds to __init__(self, file), __iter__, and fieldnames
 def CsvDictReader(file):
@@ -136,6 +137,7 @@ class IteratorJSONReader(object):
             pass
         else:
             try:
+                value = get_translation(value, "en")
                 value = {
                     'yes': True,
                     'true': True,

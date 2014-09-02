@@ -3,6 +3,8 @@ import csv
 from tempfile import NamedTemporaryFile
 import openpyxl
 
+from dimagi.utils.translation import localize
+
 
 # a *DictReader responsds to __init__(self, file), __iter__, and fieldnames
 def CsvDictReader(file):
@@ -136,6 +138,12 @@ class IteratorJSONReader(object):
             pass
         else:
             try:
+                # work-around for circular import problem
+                from django.utils.translation import ugettext
+                if value is not None or value is not '':
+                    # 'en' should come from settings, but dimagi-utils shouldn't depend on it
+                    with localize('en'):
+                        value = ugettext(value)
                 value = {
                     'yes': True,
                     'true': True,

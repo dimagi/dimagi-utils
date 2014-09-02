@@ -1,9 +1,10 @@
 import csv
 
+from django.utils.translation import ugettext
 from tempfile import NamedTemporaryFile
 import openpyxl
 
-from dimagi.utils.translations import get_translation
+from corehq.util.translation import localize
 
 # a *DictReader responsds to __init__(self, file), __iter__, and fieldnames
 def CsvDictReader(file):
@@ -137,7 +138,9 @@ class IteratorJSONReader(object):
             pass
         else:
             try:
-                value = get_translation(value, "en")
+                if value is not None:
+                    with localize('en'):
+                        value = ugettext(value)
                 value = {
                     'yes': True,
                     'true': True,

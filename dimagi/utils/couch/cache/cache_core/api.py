@@ -62,12 +62,16 @@ def do_cache_doc(doc, cache_expire=COUCH_CACHE_TIMEOUT):
         rcache().set(key_doc_id(doc['_id']), simplejson.dumps(doc), timeout=cache_expire)
 
 
-def cached_open_doc(db, doc_id, cache_expire=COUCH_CACHE_TIMEOUT, **params):
+def cached_open_doc(db, doc_id, cache_expire=COUCH_CACHE_TIMEOUT, check_rev=False, **params):
     """
     Main wrapping function to open up a doc. Replace db.open_doc(doc_id)
     """
     try:
         cached_doc = _get_cached_doc_only(doc_id)
+        if check_rev and cached_doc and '_rev' in cached_doc:
+            rev = db.get_rev(doc_id)
+            if not rev == cached_doc['_rev']:
+                cached_doc = None
     except ConnectionInterrumped:
         cached_doc = INTERRUPTED
     if cached_doc in (None, INTERRUPTED):

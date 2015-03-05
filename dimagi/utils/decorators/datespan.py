@@ -27,7 +27,7 @@ def datespan_in_request(from_param="from", to_param="to",
             # values, checking first the args and then the kwargs
             req = request_from_args_or_kwargs(*args, **kwargs)
             if req:
-                req_dict = req.POST if req.method == "POST" else req.GET
+                req_dict = req.REQUEST
                 def date_or_nothing(param):
                     date = req_dict.get(param, None)
                     return datetime.strptime(date, format_string) if date else None

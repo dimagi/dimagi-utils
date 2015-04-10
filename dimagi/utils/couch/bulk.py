@@ -100,3 +100,33 @@ def wrapped_docs(cls, keys):
     rows = get_docs(cls.get_db(), keys)
     for row in rows:
         yield cls.wrap(row['doc'])
+
+
+class IterativeSaver(object):
+    """
+    Bulk save doc dicts in chunks.  Works well with the output from iter_docs.
+
+        with IterativeSaver(db) as iter_db:
+            for doc in iter_docs(db)
+                iter_db.save(doc)
+    """
+    def __init__(self, database, chunksize=100):
+        self.db = database
+        self.chunksize = chunksize
+
+    def __enter__(self):
+        self.to_save = []
+        return self
+
+    def commit(self):
+        self.db.bulk_save(self.to_save)
+        self.to_save = []
+
+    def save(self, doc):
+        self.to_save.append(doc)
+        if len(self.to_save) >= self.chunksize:
+            self.commit()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self.to_save:
+            self.commit()

@@ -13,3 +13,4 @@ __test__ = {
 from .lazy_attachment_doc import *
 from .dates import *
 from .test_json_handler import *
+from .test_bulk_couch import *

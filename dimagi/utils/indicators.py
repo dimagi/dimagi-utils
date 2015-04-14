@@ -1,5 +1,5 @@
 from couchdbkit import ResourceConflict
-from dimagi.ext.couchdbkit import DocumentSchema, DictProperty, DateTimeProperty, BooleanProperty
+from couchdbkit.ext.django.schema import DocumentSchema, DictProperty, DateTimeProperty, BooleanProperty
 import datetime
 from dimagi.utils.couch.database import get_safe_write_kwargs
 

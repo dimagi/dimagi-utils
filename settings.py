@@ -4,7 +4,6 @@ SECRET_KEY = 'this is not a secret key'
 
 INSTALLED_APPS = (
     'dimagi.utils',
-    'dimagi.ext',
     'couchdbkit.ext.django',
     'django.contrib.contenttypes',
     'django.contrib.auth',
@@ -22,7 +21,7 @@ DATABASES = {
 ####### Couch Config ######
 COUCH_DATABASE = 'http://127.0.0.1:5984/dimagi_utils'
 
-COUCHDB_DATABASES = [(app, COUCH_DATABASE) for app in ['utils', 'ext', 'couch']]
+COUCHDB_DATABASES = [(app, COUCH_DATABASE) for app in ['utils', 'couch']]
 
 
 TEST_RUNNER = 'couchdbkit.ext.django.testrunner.CouchDbKitTestSuiteRunner'

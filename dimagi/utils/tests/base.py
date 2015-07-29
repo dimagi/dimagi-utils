@@ -6,7 +6,7 @@ if not settings.configured:
 
 
 from mock import patch, MagicMock, call, NonCallableMock
-from unittest2 import TestCase
+from django.test import SimpleTestCase as TestCase
 
 from dimagi.utils.create_unique_filter import create_unique_filter
 from dimagi.utils.excel import IteratorJSONReader

@@ -329,6 +329,12 @@ class FileObject(TemporaryObject):
 
         return (meta, stream)
 
+    def get_stream_filepath(self):
+        return os.path.join(self.base_dir, self.stream_key())
+
+    def get_meta_filepath(self):
+        return os.path.join(self.base_dir, self.meta_key())
+
     @property
     def base_dir(self):
         return self._base_dir or settings.SHARED_DRIVE_CONF.temp_dir
@@ -343,8 +349,8 @@ class FileObject(TemporaryObject):
         if not base_dir:
             return
 
-        stream_path = os.path.join(base_dir, self.stream_key(OBJECT_ORIGINAL))
-        meta_path = os.path.join(base_dir, self.meta_key(OBJECT_ORIGINAL))
+        stream_path = self.get_stream_filepath()
+        meta_path = self.get_meta_filepath()
 
         with open(stream_path, 'w+') as f:
             f.write(object_stream.read())
@@ -355,6 +361,8 @@ class FileObject(TemporaryObject):
         """
         Returns all FULL keys
         """
+        if not self.base_dir:
+            return [], []
         full_stream_keys = glob.glob(os.path.join(self.base_dir, self.stream_key(WILDCARD)))
         full_meta_keys = glob.glob(os.path.join(self.base_dir, self.meta_key(WILDCARD)))
 

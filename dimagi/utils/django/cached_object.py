@@ -1,3 +1,4 @@
+import glob
 import hashlib
 import logging
 import os
@@ -9,6 +10,7 @@ except:
     import StringIO
 
 from django.core import cache
+from django.conf import settings
 from PIL import Image, ImageOps
 CACHE_PREFIX = 'ocache_'
 
@@ -167,8 +169,8 @@ class CachedImageMeta(CachedObjectMeta):
         )
         return ret
 
+class TemporaryObject(object):
 
-class CachedObject(object):
     def __init__(self, cache_key):
         """
         cache_key is the supposedly unique cache key you will want to create for keeping track of your cacheable assets.
@@ -176,10 +178,6 @@ class CachedObject(object):
         """
         self.cache_key = cache_key
 
-        #key_hash is the hash of the key for eventual use as a retrieval via static assets.
-        #todo: once key_hash determined with object stream, create stream file and deposit onto static machine
-        #generate url and retrieve by key_hash url.
-        self.key_hash = hashlib.md5(cache_key).hexdigest()
         try:
             stream_keys, meta_keys = self.get_all_keys()
             self.stream_keys = stream_keys
@@ -200,47 +198,74 @@ class CachedObject(object):
 
     @property
     def key_prefix(self):
-        #reality is it's the cache_key
-        #note single underscore here and on the other side so it's double underscore
+        # reality is it's the cache_key
+        # note single underscore here and on the other side so it's double underscore
         return "%(cache_prefix)s_%(prefix_str)s_" % {"cache_prefix": CACHE_PREFIX,
                                                      "prefix_str": self.cache_key}
 
-    def stream_key(self, size_key):
+    def stream_key(self, size_key=OBJECT_ORIGINAL):
         cache_stream_key = "%(prefix)s_object_%(size)s" % \
                            {"prefix": self.key_prefix,
                             "size": size_key}
         return cache_stream_key
 
-    def meta_key(self, size_key):
+    def meta_key(self, size_key=OBJECT_ORIGINAL):
         cache_meta_key = "%(prefix)s_meta_%(size)s" % \
                          {"prefix": self.key_prefix, "size": size_key}
         return cache_meta_key
 
-    def fetch_stream(self, key):
-        stream = self.rcache.get(self.stream_key(key))
+    def fetch_stream(self, **kwargs):
+        """
+        This should return a stream object that contains the content of the temporary object.
+        """
+        raise NotImplementedError()
+
+    def fetch_meta(self, **kwargs):
+        """
+        This should return a dictionary object of the meta data associated with the object.
+        """
+        raise NotImplementedError()
+
+    def get(self, **kwargs):
+        """
+        Returns a tuple of (meta, stream)
+        """
+        raise NotImplementedError()
+
+    def cache_put(self, object_stream, metadata, **kwargs):
+        """
+        Writes a temporary object to its backend (file system, redis, etc.)
+        """
+        raise NotImplementedError()
+
+    def get_all_keys(self):
+        """
+        Gets all keys associated with the object.
+
+        Resturns two values: list_stream_keys, list_meta_keys
+        """
+        raise NotImplementedError()
+
+
+class CachedObject(TemporaryObject):
+
+    def fetch_stream(self, size_key=OBJECT_ORIGINAL):
+        stream = self.rcache.get(self.stream_key(size_key))
         if stream is not None:
             return StringIO.StringIO(stream)
         else:
             return None
 
-    def fetch_meta(self, key):
-        meta = self.rcache.get(self.meta_key(key))
+    def fetch_meta(self, size_key=OBJECT_ORIGINAL):
+        meta = self.rcache.get(self.meta_key(size_key))
         if meta is not None:
             return simplejson.loads(meta)
         else:
             return {}
 
-    #retrieval methods
     def get(self, **kwargs):
-        return self._do_get_size(OBJECT_ORIGINAL)
-
-    def _do_get_size(self, size_key):
-        """
-        Return the stream of the cache_key and size_key you want
-        """
-        stream = self.fetch_stream(size_key)
-        meta = self.fetch_meta(size_key)
-
+        stream = self.fetch_stream()
+        meta = self.fetch_meta()
         return (meta, stream)
 
     def cache_put(self, object_stream, metadata, timeout=None):
@@ -248,9 +273,9 @@ class CachedObject(object):
 
         rcache = self.rcache
         object_stream.seek(0)
-        rcache.set(self.stream_key(OBJECT_ORIGINAL), object_stream.read(),
+        rcache.set(self.stream_key(), object_stream.read(),
                    timeout=timeout)
-        rcache.set(self.meta_key(OBJECT_ORIGINAL), simplejson.dumps(object_meta.to_json()),
+        rcache.set(self.meta_key(), simplejson.dumps(object_meta.to_json()),
                    timeout=timeout)
 
     @property
@@ -263,6 +288,75 @@ class CachedObject(object):
         """
         full_stream_keys = self.rcache.keys(self.stream_key(WILDCARD))
         full_meta_keys = self.rcache.keys(self.meta_key(WILDCARD))
+
+        assert len(full_stream_keys) == len(full_meta_keys),\
+            "Error stream and meta keys must be 1:1 - something went wrong in the configuration "\
+            "for key=%s, full_stream_keys=%s, full_meta_keys=%s"\
+            % (self.cache_key, str(full_stream_keys), str(full_meta_keys))
+        return full_stream_keys, full_meta_keys
+
+
+class FileObject(TemporaryObject):
+    """
+    Leverages NFS filesystem for caching large documents
+    """
+    def __init__(self, cache_key, base_dir=None):
+        self._base_dir = base_dir
+        super(FileObject, self).__init__(cache_key)
+
+    def fetch_stream(self):
+        stream_path = os.path.join(
+            self.base_dir,
+            self.stream_key(),
+        )
+        try:
+            return open(stream_path, 'r+')
+        except IOError:
+            return None
+
+    def fetch_meta(self):
+        meta_path = os.path.join(
+            self.base_dir,
+            self.meta_key(),
+        )
+        with open(meta_path, 'r+') as f:
+            return simplejson.loads(f.read())
+        return None
+
+    def get(self, **kwargs):
+        stream = self.fetch_stream()
+        meta = self.fetch_meta()
+
+        return (meta, stream)
+
+    @property
+    def base_dir(self):
+        return self._base_dir or settings.SHARED_DRIVE_CONF.temp_dir
+
+    def cache_put(self, object_stream, metadata, timeout=None):
+        object_meta = CachedObjectMeta.make_meta(object_stream, OBJECT_ORIGINAL, metadata)
+
+        object_stream.seek(0)
+
+        base_dir = self.base_dir
+        # Do not cache if there is no base dir
+        if not base_dir:
+            return
+
+        stream_path = os.path.join(base_dir, self.stream_key(OBJECT_ORIGINAL))
+        meta_path = os.path.join(base_dir, self.meta_key(OBJECT_ORIGINAL))
+
+        with open(stream_path, 'w+') as f:
+            f.write(object_stream.read())
+        with open(meta_path, 'w+') as f:
+            f.write(simplejson.dumps(object_meta.to_json()))
+
+    def get_all_keys(self):
+        """
+        Returns all FULL keys
+        """
+        full_stream_keys = glob.glob(os.path.join(self.base_dir, self.stream_key(WILDCARD)))
+        full_meta_keys = glob.glob(os.path.join(self.base_dir, self.meta_key(WILDCARD)))
 
         assert len(full_stream_keys) == len(full_meta_keys),\
             "Error stream and meta keys must be 1:1 - something went wrong in the configuration "\
@@ -301,7 +395,9 @@ class CachedImage(CachedObject):
             else:
                 #if size is not possible, this will mean it's too large, return the original
                 size_key = OBJECT_ORIGINAL
-        return super(CachedImage, self)._do_get_size(size_key)
+        stream = self.fetch_stream(size_key)
+        meta = self.fetch_meta(size_key)
+        return (meta, stream)
 
     def fetch_image(self, key):
         stream = self.rcache.get(self.stream_key(key))

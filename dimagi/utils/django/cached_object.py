@@ -179,8 +179,8 @@ class TemporaryObject(object):
         self.cache_key = cache_key
 
     def is_cached(self):
-        return self.rcache.exists(self.stream_key(OBJECT_ORIGINAL)) and self.rcache.exists(
-            self.meta_key(OBJECT_ORIGINAL))
+        return self.rcache.exists(os.path.join(self.stream_key(OBJECT_ORIGINAL))) and self.rcache.exists(
+            os.path.join(self.meta_key(OBJECT_ORIGINAL)))
 
     @property
     def key_prefix(self):

@@ -178,13 +178,6 @@ class TemporaryObject(object):
         """
         self.cache_key = cache_key
 
-        try:
-            stream_keys, meta_keys = self.get_all_keys()
-            self.stream_keys = stream_keys
-            self.meta_keys = meta_keys
-        except AssertionError as e:
-            logging.exception(e.message)
-
     def is_cached(self):
         try:
             metas, streams = self.get_all_keys()
@@ -303,6 +296,10 @@ class FileObject(TemporaryObject):
     def __init__(self, cache_key, base_dir=None):
         self._base_dir = base_dir
         super(FileObject, self).__init__(cache_key)
+
+    def is_cached(self):
+        return os.path.exists(self.base_dir, self.stream_key()) and os.path.exists(
+            self.base_dir, self.meta_key())
 
     def fetch_stream(self):
         stream_path = os.path.join(

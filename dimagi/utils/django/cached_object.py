@@ -179,15 +179,8 @@ class TemporaryObject(object):
         self.cache_key = cache_key
 
     def is_cached(self):
-        try:
-            metas, streams = self.get_all_keys()
-            if len(metas) == 0:
-                return False
-            else:
-                return True
-        except AssertionError:
-            # maybe one of our keys was purged. Oh well.
-            return False
+        return self.rcache.exists(self.stream_key(OBJECT_ORIGINAL)) and self.rcache.exists(
+            self.meta_key(OBJECT_ORIGINAL))
 
     @property
     def key_prefix(self):
@@ -274,19 +267,6 @@ class CachedObject(TemporaryObject):
     @property
     def rcache(self):
         return MOCK_REDIS_CACHE or cache.get_cache('redis')
-
-    def get_all_keys(self):
-        """
-        Returns all FULL keys
-        """
-        full_stream_keys = self.rcache.keys(self.stream_key(WILDCARD))
-        full_meta_keys = self.rcache.keys(self.meta_key(WILDCARD))
-
-        assert len(full_stream_keys) == len(full_meta_keys),\
-            "Error stream and meta keys must be 1:1 - something went wrong in the configuration "\
-            "for key=%s, full_stream_keys=%s, full_meta_keys=%s"\
-            % (self.cache_key, str(full_stream_keys), str(full_meta_keys))
-        return full_stream_keys, full_meta_keys
 
 
 class FileObject(TemporaryObject):
@@ -387,6 +367,30 @@ class CachedImage(CachedObject):
 
         rcache.set(self.stream_key(OBJECT_ORIGINAL), image_stream.read())
         rcache.set(self.meta_key(OBJECT_ORIGINAL), simplejson.dumps(image_meta.to_json()))
+
+    def is_cached(self):
+        try:
+            metas, streams = self.get_all_keys()
+            if len(metas) == 0:
+                return False
+            else:
+                return True
+        except AssertionError:
+            # maybe one of our keys was purged. Oh well.
+            return False
+
+    def get_all_keys(self):
+        """
+        Returns all FULL keys
+        """
+        full_stream_keys = self.rcache.keys(self.stream_key(WILDCARD))
+        full_meta_keys = self.rcache.keys(self.meta_key(WILDCARD))
+
+        assert len(full_stream_keys) == len(full_meta_keys),\
+            "Error stream and meta keys must be 1:1 - something went wrong in the configuration "\
+            "for key=%s, full_stream_keys=%s, full_meta_keys=%s"\
+            % (self.cache_key, str(full_stream_keys), str(full_meta_keys))
+        return full_stream_keys, full_meta_keys
 
     def get(self, size_key=OBJECT_ORIGINAL, **kwargs):
         """

@@ -270,8 +270,8 @@ class FileObject(TemporaryObject):
         super(FileObject, self).__init__(cache_key)
 
     def is_cached(self):
-        return os.path.exists(self.base_dir, self.stream_key()) and os.path.exists(
-            self.base_dir, self.meta_key())
+        return os.path.exists(os.path.join(self.base_dir, self.stream_key())) and os.path.exists(
+            os.path.join(self.base_dir, self.meta_key()))
 
     def fetch_stream(self):
         stream_path = os.path.join(

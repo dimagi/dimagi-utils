@@ -224,14 +224,6 @@ class TemporaryObject(object):
         """
         raise NotImplementedError()
 
-    def get_all_keys(self):
-        """
-        Gets all keys associated with the object.
-
-        Resturns two values: list_stream_keys, list_meta_keys
-        """
-        raise NotImplementedError()
-
 
 class CachedObject(TemporaryObject):
 
@@ -333,21 +325,6 @@ class FileObject(TemporaryObject):
             f.write(object_stream.read())
         with open(meta_path, 'w+') as f:
             f.write(simplejson.dumps(object_meta.to_json()))
-
-    def get_all_keys(self):
-        """
-        Returns all FULL keys
-        """
-        if not self.base_dir:
-            return [], []
-        full_stream_keys = glob.glob(os.path.join(self.base_dir, self.stream_key(WILDCARD)))
-        full_meta_keys = glob.glob(os.path.join(self.base_dir, self.meta_key(WILDCARD)))
-
-        assert len(full_stream_keys) == len(full_meta_keys),\
-            "Error stream and meta keys must be 1:1 - something went wrong in the configuration "\
-            "for key=%s, full_stream_keys=%s, full_meta_keys=%s"\
-            % (self.cache_key, str(full_stream_keys), str(full_meta_keys))
-        return full_stream_keys, full_meta_keys
 
 
 class CachedImage(CachedObject):

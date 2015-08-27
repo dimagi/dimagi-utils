@@ -1,11 +1,49 @@
+import glob
 import os
 import StringIO
 
+from django.test import SimpleTestCase
 from PIL import Image
-from unittest2 import TestCase
 
 from dimagi.utils.django import cached_object
-from dimagi.utils.django.cached_object import CachedObject, CachedImage, IMAGE_SIZE_ORDERING, OBJECT_ORIGINAL
+from dimagi.utils.django.cached_object import (
+    CachedObject, CachedImage, FileObject, IMAGE_SIZE_ORDERING, OBJECT_ORIGINAL, CACHE_PREFIX
+)
+
+THISDIR = os.path.dirname(os.path.abspath(__file__))
+BASE_PATH = os.path.join(THISDIR, 'files')
+
+
+class FileObjectTests(SimpleTestCase):
+
+    def setUp(self):
+        self._wipe_files()
+
+    def tearDown(self):
+        self._wipe_files()
+
+    def _wipe_files(self):
+        os.chdir(BASE_PATH)
+        filelist = glob.glob("{}*".format(CACHE_PREFIX))
+        for f in filelist:
+            os.remove(f)
+
+    def testBasicObjects(self):
+        text = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        filename = "something"
+        buffer = StringIO.StringIO(text)
+
+        obj = FileObject(filename, base_dir=BASE_PATH)
+
+        self.assertFalse(obj.is_cached())
+        metadata = {'content_type': 'text/plain'}
+        obj.cache_put(buffer, metadata)
+
+        self.assertTrue(obj.is_cached())
+        cmeta, cstream = obj.get()
+        self.assertEqual(cmeta['content_length'], len(text))
+        self.assertEqual(cstream.read(), text)
+
 
 class FakeCache(object):
     def __init__(self):
@@ -25,7 +63,8 @@ class FakeCache(object):
 
 fake_cache = FakeCache()
 
-class CachedObjectTests(TestCase):
+
+class CachedObjectTests(SimpleTestCase):
     def setUp(self):
         cached_object.MOCK_REDIS_CACHE = fake_cache
 
@@ -44,7 +83,6 @@ class CachedObjectTests(TestCase):
         cmeta, cstream = obj.get()
         self.assertEqual(cmeta['content_length'], len(text))
         self.assertEqual(cstream.read(), text)
-
 
     def _make_image(self, width=3001, height=2001):
         im = Image.new("RGB", (width, height), (0, 0, 0))
@@ -76,7 +114,6 @@ class CachedObjectTests(TestCase):
             else:
                 self.assertEqual(stream_size, orig_size)
 
-
     def testSmallerImageObject(self):
         image, buffer = self._make_image(width=641, height=481)
         buffer.seek(0, os.SEEK_END)
@@ -88,7 +125,7 @@ class CachedObjectTests(TestCase):
         cimage.cache_put(buffer, metadata)
 
         smaller = IMAGE_SIZE_ORDERING[0:7]
-        bigger = IMAGE_SIZE_ORDERING[7:-1] # skip the original
+        bigger = IMAGE_SIZE_ORDERING[7:-1]  # skip the original
 
         for size_key in smaller:
             self.assertTrue(cimage.can_size(size_key))
@@ -107,14 +144,3 @@ class CachedObjectTests(TestCase):
             self.assertEqual(stream_size, orig_size)
             self.assertNotEqual(cmeta['size_key'], size_key)
             self.assertEqual(cmeta['size_key'], OBJECT_ORIGINAL)
-
-
-
-
-
-
-
-
-
-
-

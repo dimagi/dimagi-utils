@@ -8,6 +8,7 @@ from StringIO import StringIO
 
 import dimagi.ext.attachments as mod
 from dimagi.ext.blobdb import FilesystemBlobDB
+from dimagi.ext.couchdbkit import Document
 from dimagi.ext.tests.util import generate_cases
 
 
@@ -76,6 +77,13 @@ class TestBlobMixin(TestCase):
         with self.assertRaises(mod.ResourceNotFound):
             self.obj.fetch_attachment(name)
 
+    def test_document_blobs(self):
+        name = "test.1"
+        content = StringIO(b"content")
+        self.obj.put_attachment(content, name, content_type="text/plain")
+        self.assertEqual(self.obj.blobs[name].content_type, "text/plain")
+        self.assertEqual(self.obj.blobs[name].content_length, 7)
+
 @generate_cases([
     (None, None),
     ("abc", None),
@@ -88,15 +96,10 @@ def test_unsaved_document(self, _id, _rev):
         obj.put_attachment(b"content", "test.1")
 
 
-class FakeCouchDocument(mod.BlobMixin):
+class FakeCouchDocument(mod.BlobMixin, Document):
     doc_type = "FakeCouchDocument"
 
     def __init__(self, doc, blobdb):
-        self._doc = doc
+        super(FakeCouchDocument, self).__init__()
+        self._doc.update(doc)
         self._blobdb = blobdb
-
-    def __getattr__(self, name):
-        try:
-            return self._doc[name]
-        except KeyError:
-            raise AttributeError(name)

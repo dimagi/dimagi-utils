@@ -4,9 +4,23 @@ from os.path import join
 
 from couchdbkit.exceptions import InvalidAttachment, ResourceNotFound
 from dimagi.ext.blobdb import NotFound
+from dimagi.ext.couchdbkit import (
+    DocumentSchema,
+    DictProperty,
+    IntegerProperty,
+    StringProperty,
+)
+from jsonobject import JsonObject
 
 
-class BlobMixin(object):
+class BlobMeta(DocumentSchema):
+    content_type = StringProperty()
+    content_length = IntegerProperty()
+
+
+class BlobMixin(JsonObject):
+
+    blobs = DictProperty(BlobMeta)
 
     def _blobdb_bucket(self):
         if self._id is None or self._rev is None:
@@ -20,10 +34,6 @@ class BlobMixin(object):
         """
         db = get_blob_db(self)
 
-        # TODO store name in couch document. Without it we cannot
-        # enumerate attachments by name. Do we need that?
-        # Is it important to keep content type and content length?
-
         if name is None:
             name = getattr(content, "name", None)
         if name is None:
@@ -34,7 +44,13 @@ class BlobMixin(object):
         elif isinstance(content, bytes):
             content = StringIO(content)
 
-        db.put(content, name, self._blobdb_bucket())
+        # do we need to worry about BlobDB reading beyond content_length?
+        bucket = self._blobdb_bucket()
+        content_length = db.put(content, name, bucket)
+        self.blobs[name] = BlobMeta(
+            content_type=content_type,
+            content_length=content_length,
+        )
         return True
 
     def fetch_attachment(self, name, stream=False):

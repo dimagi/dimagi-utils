@@ -9,5 +9,6 @@ if "django.conf" not in sys.modules:
         SECRET_KEY="secret",
     )
 else:
+    from .test_attachments import *
     from .test_blobdb import *
     from .test_jsonobject import *

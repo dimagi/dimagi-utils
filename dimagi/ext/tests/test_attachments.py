@@ -8,6 +8,7 @@ from StringIO import StringIO
 
 import dimagi.ext.attachments as mod
 from dimagi.ext.blobdb import FilesystemBlobDB
+from dimagi.ext.tests.util import generate_cases
 
 
 class TestBlobMixin(TestCase):
@@ -26,7 +27,10 @@ class TestBlobMixin(TestCase):
         cls.rootdir = None
 
     def setUp(self):
-        doc = {"_id": next(self.keys)}
+        doc = {
+            "_id": next(self.keys),
+            "_rev": next(self.keys),
+        }
         self.obj = FakeCouchDocument(doc, self.db)
 
     def test_put_attachment_without_name(self):
@@ -66,9 +70,27 @@ class TestBlobMixin(TestCase):
         with self.assertRaises(mod.ResourceNotFound):
             self.obj.fetch_attachment(name)
 
+@generate_cases([
+    (None, None),
+    ("abc", None),
+    (None, "abc"),
+], TestBlobMixin)
+def test_unsaved_document(self, _id, _rev):
+    doc = {"_id": _id, "_rev": _rev}
+    obj = FakeCouchDocument(doc, self.db)
+    with self.assertRaises(mod.ResourceNotFound):
+        obj.put_attachment(b"content", "test.1")
+
 
 class FakeCouchDocument(mod.BlobMixin):
+    doc_type = "FakeCouchDocument"
 
     def __init__(self, doc, blobdb):
         self._doc = doc
         self._blobdb = blobdb
+
+    def __getattr__(self, name):
+        try:
+            return self._doc[name]
+        except KeyError:
+            raise AttributeError(name)

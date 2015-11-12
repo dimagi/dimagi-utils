@@ -9,7 +9,9 @@ from dimagi.ext.blobdb import NotFound
 class BlobMixin(object):
 
     def _blobdb_bucket(self):
-        return join(type(self).__name__, self._doc["_id"])
+        if self._id is None or self._rev is None:
+            raise ResourceNotFound("cannot manipulate attachment on unsaved document")
+        return join(self.doc_type, self._id)
 
     def put_attachment(self, content, name=None, content_type=None, content_length=None):
         """Put attachment in blob database

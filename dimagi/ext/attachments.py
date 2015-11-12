@@ -31,6 +31,8 @@ class BlobMixin(object):
 
         if isinstance(content, unicode):
             content = StringIO(content.encode("utf-8"))
+        elif isinstance(content, bytes):
+            content = StringIO(content)
 
         db.put(content, name, self._blobdb_bucket())
         return True

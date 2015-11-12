@@ -37,17 +37,23 @@ class TestBlobMixin(TestCase):
         with self.assertRaises(mod.InvalidAttachment):
             self.obj.put_attachment("content")
 
-    def test_put_attachment(self):
+    def test_put_attachment_unicode(self):
         name = "test.1"
-        self.obj.put_attachment(StringIO("content"), name)
-        self.assertEqual(self.obj.fetch_attachment(name), "content")
+        data = u"\u4500 content"
+        self.obj.put_attachment(data, name)
+        self.assertEqual(self.obj.fetch_attachment(name), data)
+
+    def test_put_attachment_bytes(self):
+        name = "test.1"
+        data = b"\xe4\x94 content" # cannot be decoded as UTF-8
+        self.obj.put_attachment(data, name)
+        self.assertEqual(self.obj.fetch_attachment(name), data)
 
     def test_put_attachment_with_named_content(self):
-        name = "test.1"
-        content = StringIO("content")
-        content.name = name
+        content = StringIO(b"content")
+        content.name = "test.1"
         self.obj.put_attachment(content)
-        self.assertEqual(self.obj.fetch_attachment(name), "content")
+        self.assertEqual(self.obj.fetch_attachment(content.name), "content")
 
     def test_fetch_attachment_with_unicode(self):
         name = "test.1"

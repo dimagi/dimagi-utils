@@ -2,13 +2,15 @@
 """
 from __future__ import absolute_import
 import os
+import re
 import shutil
 from hashlib import md5
-from os.path import exists, isdir, dirname, join
+from os.path import commonprefix, exists, isabs, isdir, dirname, join, realpath, sep
 
 
 CHUNK_SIZE = 4096
 DEFAULT_BUCKET = "_default"
+SAFENAME = re.compile("^[a-z0-9_./-]+$", re.IGNORECASE)
 
 
 class FilesystemBlobDB(object):
@@ -16,6 +18,7 @@ class FilesystemBlobDB(object):
     """
 
     def __init__(self, rootdir):
+        assert isabs(rootdir), rootdir
         self.rootdir = rootdir
 
     def put(self, content, name, bucket=DEFAULT_BUCKET):
@@ -64,8 +67,7 @@ class FilesystemBlobDB(object):
         :returns: True if the blob was deleted else false.
         """
         if name is None:
-            assert not bucket.startswith(("/", "\\")), bucket
-            path = join(self.rootdir, bucket)
+            path = safejoin(self.rootdir, bucket)
             remove = shutil.rmtree
         else:
             path = self._getpath(name, bucket)
@@ -76,17 +78,32 @@ class FilesystemBlobDB(object):
         return True
 
     def _getpath(self, name, bucket):
-        assert not bucket.startswith(("/", "\\")), bucket
-        assert not name.startswith(("/", "\\")), name
-        root = join(self.rootdir, bucket)
+        bucket_path = safejoin(self.rootdir, bucket)
+        prefix = name if SAFENAME.match(name) else "unsafe"
         if isinstance(name, unicode):
             name = name.encode("utf-8")
-        hashname = md5(name).hexdigest()
-        return join(root, hashname)
+        hash = md5(name).hexdigest()
+        return safejoin(bucket_path, prefix + "." + hash)
+
+
+def safejoin(root, subpath):
+    """Join root to subpath ensuring that the result is actually inside root
+    """
+    root = realpath(root)
+    if not SAFENAME.match(subpath):
+        raise BadName(u"unsafe path name: %r" % subpath)
+    path = realpath(join(root, subpath))
+    if commonprefix([root + sep, path]) != root + sep:
+        raise BadName(u"invalid relative path: %r" % subpath)
+    return path
 
 
 class Error(Exception):
     """BlobDB error"""
+
+
+class BadName(Error):
+    """Blob name error"""
 
 
 class NotFound(Error):

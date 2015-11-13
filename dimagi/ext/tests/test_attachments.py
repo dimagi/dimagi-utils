@@ -20,19 +20,29 @@ class TestBlobMixin(TestCase):
     def setUpClass(cls):
         cls.rootdir = mkdtemp(prefix="blobdb")
         cls.db = FilesystemBlobDB(cls.rootdir)
+        mod._blob_db.append(cls.db)
+        try:
+            # verify get_blob_db() returns our new db
+            assert mod.get_blob_db() is cls.db, 'got wrong blob db'
+        except:
+            rmtree(cls.rootdir)
+            raise
 
     @classmethod
     def tearDownClass(cls):
-        cls.db = None
-        rmtree(cls.rootdir)
-        cls.rootdir = None
+        try:
+            mod._blob_db.remove(cls.db)
+        finally:
+            cls.db = None
+            rmtree(cls.rootdir)
+            cls.rootdir = None
 
     def setUp(self):
         doc = {
             "_id": next(self.keys),
             "_rev": next(self.keys),
         }
-        self.obj = FakeCouchDocument(doc, self.db)
+        self.obj = FakeCouchDocument(doc)
 
     def test_put_attachment_without_name(self):
         with self.assertRaises(mod.InvalidAttachment):
@@ -91,7 +101,7 @@ class TestBlobMixin(TestCase):
 ], TestBlobMixin)
 def test_unsaved_document(self, _id, _rev):
     doc = {"_id": _id, "_rev": _rev}
-    obj = FakeCouchDocument(doc, self.db)
+    obj = FakeCouchDocument(doc)
     with self.assertRaises(mod.ResourceNotFound):
         obj.put_attachment(b"content", "test.1")
 
@@ -99,7 +109,6 @@ def test_unsaved_document(self, _id, _rev):
 class FakeCouchDocument(mod.BlobMixin, Document):
     doc_type = "FakeCouchDocument"
 
-    def __init__(self, doc, blobdb):
+    def __init__(self, doc):
         super(FakeCouchDocument, self).__init__()
         self._doc.update(doc)
-        self._blobdb = blobdb

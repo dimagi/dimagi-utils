@@ -3,13 +3,14 @@ from cStringIO import StringIO
 from os.path import join
 
 from couchdbkit.exceptions import InvalidAttachment, ResourceNotFound
-from dimagi.ext.blobdb import NotFound
+from dimagi.ext.blobdb import FilesystemBlobDB, NotFound
 from dimagi.ext.couchdbkit import (
     DocumentSchema,
     DictProperty,
     IntegerProperty,
     StringProperty,
 )
+from django.conf import settings
 from jsonobject import JsonObject
 
 
@@ -32,7 +33,7 @@ class BlobMixin(JsonObject):
 
         :param content: String or file object.
         """
-        db = get_blob_db(self)
+        db = get_blob_db()
 
         if name is None:
             name = getattr(content, "name", None)
@@ -60,7 +61,7 @@ class BlobMixin(JsonObject):
         read at least once (streamers should not expect to seek within
         or read the contents of the returned file more than once).
         """
-        db = get_blob_db(self)
+        db = get_blob_db()
         try:
             blob = db.get(name, self._blobdb_bucket())
         except NotFound:
@@ -82,14 +83,14 @@ class BlobMixin(JsonObject):
         return body
 
     def delete_attachment(self, name):
-        db = get_blob_db(self)
+        db = get_blob_db()
         return db.delete(name, self._blobdb_bucket())
 
 
-def get_blob_db(couch_model):
-    try:
-        return couch_model._blobdb
-    except AttributeError:
-        pass
-    from django.conf import settings
-    raise NotImplementedError
+_blob_db = [] # singleton/global, stack for tests to push temporary dbs
+
+def get_blob_db():
+    if not _blob_db:
+        db = FilesystemBlobDB(settings.SHARED_DRIVE_CONF.blob_dir)
+        _blob_db.append(db)
+    return _blob_db[-1]

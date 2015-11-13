@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 import os
 from hashlib import md5
 from os.path import isdir, join
@@ -30,8 +31,8 @@ class TestFilesystemBlobDB(TestCase):
             self.assertEqual(fh.read(), b"content")
 
     def test_put_and_get_with_unicode_names(self):
-        name = u"test.\u4500"
-        bucket = u"doc.4500"
+        name = "test.\u4500"
+        bucket = "doc.4500"
         self.db.put(StringIO(b"content"), name, bucket)
         with self.db.get(name, bucket) as fh:
             self.assertEqual(fh.read(), b"content")
@@ -88,7 +89,7 @@ class TestFilesystemBlobDB(TestCase):
             self.assertEqual(fh.read(), b"content")
 
     def test_unsafe_attachment_path(self):
-        name = u"\u4500.1"
+        name = "\u4500.1"
         bucket = join("doctype", "8cd98f0")
         self.db.put(StringIO(b"content"), name, bucket)
         path = join(self.rootdir, bucket, "unsafe." + md5(name.encode("utf-8")).hexdigest())
@@ -96,7 +97,7 @@ class TestFilesystemBlobDB(TestCase):
             self.assertEqual(fh.read(), b"content")
 
 @generate_cases([
-    ("test.1", u"\u4500.1"),
+    ("test.1", "\u4500.1"),
     ("test.1", "/tmp/notallowed"),
     ("test.1", "."),
     ("test.1", ".."),

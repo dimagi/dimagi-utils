@@ -23,6 +23,12 @@ class BlobMixin(JsonObject):
 
     blobs = DictProperty(BlobMeta)
 
+    # When true, fallback to couch on fetch and delete if blob is not
+    # found in blobdb. Set this to True on subclasses that are in the
+    # process of being migrated. When this is false (the default) the
+    # methods on this mixin will not touch couchdb.
+    _migrating_from_couch = False
+
     def _blobdb_bucket(self):
         if self._id is None or self._rev is None:
             raise ResourceNotFound("cannot manipulate attachment on unsaved document")
@@ -65,6 +71,11 @@ class BlobMixin(JsonObject):
         try:
             blob = db.get(name, self._blobdb_bucket())
         except NotFound:
+            if self._migrating_from_couch:
+                # TODO remove this at some point in the future when all
+                # attachments have been migrated from couch to blobdb.
+                return super(BlobMixin, self).fetch_attachment(
+                                                        name, stream=stream)
             raise ResourceNotFound(u"{model} attachment: {name!r}".format(
                 model=type(self).__name__,
                 name=name,
@@ -83,8 +94,13 @@ class BlobMixin(JsonObject):
         return body
 
     def delete_attachment(self, name):
-        db = get_blob_db()
-        return db.delete(name, self._blobdb_bucket())
+        if self._migrating_from_couch:
+            # TODO remove this at some point in the future when all
+            # attachments have been migrated from couch to blobdb.
+            deleted = super(BlobMixin, self).delete_attachment(name)
+        else:
+            deleted = False
+        return get_blob_db().delete(name, self._blobdb_bucket()) or deleted
 
 
 _blob_db = [] # singleton/global, stack for tests to push temporary dbs

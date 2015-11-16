@@ -110,6 +110,19 @@ class TestBlobMixin(TestCase):
         assert doc.delete_attachment(name), "couch attachment not deleted"
         assert name not in doc._attachments, doc._attachments
 
+    def test_blobs_property(self):
+        doc = self.make_doc(FallbackToCouchDocument)
+        doc._attachments["att"] = {
+            "content": b"couch content",
+            "content_type": None,
+            "length": 13,
+        }
+        doc.put_attachment("content", "blob", content_type="text/plain")
+        self.assertIn("att", doc.blobs)
+        self.assertIn("blob", doc.blobs)
+        self.assertEqual(doc.blobs["att"].content_length, 13)
+        self.assertEqual(doc.blobs["blob"].content_length, 7)
+
 @generate_cases([
     (None, None),
     ("abc", None),

@@ -9,8 +9,8 @@ from StringIO import StringIO
 
 import dimagi.ext.attachments as mod
 from dimagi.ext.blobdb import FilesystemBlobDB
-from dimagi.ext.couchdbkit import Document
 from dimagi.ext.tests.util import generate_cases
+from jsonobject import JsonObject
 
 
 class TestBlobMixin(TestCase):
@@ -122,11 +122,17 @@ def test_unsaved_document(self, _id, _rev):
         obj.put_attachment(b"content", "test.1")
 
 
-class BaseDocument(Document):
+class BaseDocument(JsonObject):
 
     def __init__(self, doc):
         super(BaseDocument, self).__init__()
-        self._doc.update(doc)
+        self._doc = doc
+
+    def __getattr__(self, name):
+        try:
+            return self._doc[name]
+        except KeyError:
+            raise AttributeError(name)
 
 
 class FakeCouchDocument(mod.BlobMixin, BaseDocument):

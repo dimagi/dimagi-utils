@@ -1,3 +1,5 @@
+from functools import wraps
+
 from couchdbkit import ResourceConflict
 from couchdbkit.client import Database
 from dimagi.ext.couchdbkit import Document
@@ -6,6 +8,51 @@ from dimagi.utils.chunked import chunked
 from dimagi.utils.couch.bulk import get_docs
 from requests.exceptions import RequestException
 from time import sleep
+
+
+class GeneratorAlreadyConsumedException(Exception):
+    pass
+
+
+class SafeGenerator(object):
+    """
+    This generator will raise a GeneratorAlreadyConsumedException if a user attempts to iterate through this
+    generator a second time.
+    """
+    def __init__(self, generator):
+        """
+        Create a new SafeGenerator by wrapping a normal one
+        :param generator: the generator to be wrapped
+        """
+        self._generator = generator
+        self._has_been_consumed = False
+
+    def __iter__(self):
+        return self
+
+    def next(self):
+        if self._has_been_consumed:
+            raise GeneratorAlreadyConsumedException
+        try:
+            return self._generator.next()
+        except StopIteration as e:
+            self._has_been_consumed = True
+            raise
+
+    def __next__(self):
+        # Python 3 compatibility
+        return self.next()
+
+
+def safe_generator(fn):
+    """
+    This decorator function wraps the return value of the given function in a SafeGenerator.
+    You should only use this decorator on functions that return generators.
+    """
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        return SafeGenerator(fn(*args, **kwargs))
+    return wrapper
 
 
 class DocTypeMismatchException(Exception):
@@ -58,12 +105,15 @@ def get_view_names(database):
             views.append("%s/%s" % (doc.name, view_name))
     return views
 
+
+@safe_generator
 def iter_docs(database, ids, chunksize=100, **query_params):
     for doc_ids in chunked(ids, chunksize):
         for doc in get_docs(database, keys=doc_ids, **query_params):
             yield doc
 
 
+@safe_generator
 def iter_docs_with_retry(database, ids, chunksize=100, max_attempts=5, **query_params):
     """
     A version of iter_docs that retries fetching documents if the connection

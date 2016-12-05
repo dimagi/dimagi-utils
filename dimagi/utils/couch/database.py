@@ -10,18 +10,26 @@ from requests.exceptions import RequestException
 from time import sleep
 
 
-class GeneratorAlreadyConsumedException(Exception):
+class IteratorAlreadyConsumedException(Exception):
     pass
 
 
-class SafeGenerator(object):
+class SafeIterator(object):
     """
-    This generator will raise a GeneratorAlreadyConsumedException if a user attempts to iterate through this
-    generator a second time.
+    This iterator-like object wraps an iterator.
+    The SafeIterator will raise a IteratorAlreadyConsumedException if a user attempts to iterate through it a
+    second time.
+    This is useful if the wrapped iterator is a one time user generator, which would simply raise StopIteration
+    exception again (thereby, appearing "empty" to a user who didn't realize that the generator had already been
+    consumed).
+
+    Note that this class cannot be used interchangeably with an iterator, because iterators must raise
+    StopIteration exceptions on subsequent iterations. However, in practice, I don't expect this to be an issue.
+    https://docs.python.org/2/library/stdtypes.html#iterator-types
     """
     def __init__(self, generator):
         """
-        Create a new SafeGenerator by wrapping a normal one
+        Create a new SafeIterator by wrapping a normal generator (or iterator)
         :param generator: the generator to be wrapped
         """
         self._generator = generator
@@ -32,7 +40,7 @@ class SafeGenerator(object):
 
     def next(self):
         if self._has_been_consumed:
-            raise GeneratorAlreadyConsumedException
+            raise IteratorAlreadyConsumedException
         try:
             return self._generator.next()
         except StopIteration as e:
@@ -46,12 +54,14 @@ class SafeGenerator(object):
 
 def safe_generator(fn):
     """
-    This decorator function wraps the return value of the given function in a SafeGenerator.
+    This decorator function wraps the return value of the given function in a SafeIterator.
     You should only use this decorator on functions that return generators.
+    The SafeIterator will render the generator "safe" by raising a IteratorAlreadyConsumedException if it is
+    iterated a second time.
     """
     @wraps(fn)
     def wrapper(*args, **kwargs):
-        return SafeGenerator(fn(*args, **kwargs))
+        return SafeIterator(fn(*args, **kwargs))
     return wrapper
 
 

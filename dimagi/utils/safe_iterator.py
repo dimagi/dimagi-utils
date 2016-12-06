@@ -5,7 +5,7 @@ class IteratorAlreadyConsumedException(Exception):
     pass
 
 
-class SafeIterator(object):
+class NotifyIterator(object):
     """
     This iterator-like object wraps an iterator.
     The SafeIterator will raise a IteratorAlreadyConsumedException if a user attempts to iterate through it a
@@ -30,8 +30,10 @@ class SafeIterator(object):
         return self
 
     def next(self):
-        if self._has_been_consumed:
-            raise IteratorAlreadyConsumedException
+        soft_assert(notify_admins=True).call(
+            not self._has_been_consumed,
+            "A one time use generator was used multiple times!"
+        )
         try:
             return self._generator.next()
         except StopIteration as e:

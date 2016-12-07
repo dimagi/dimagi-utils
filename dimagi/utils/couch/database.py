@@ -1,3 +1,5 @@
+from functools import wraps
+
 from couchdbkit import ResourceConflict
 from couchdbkit.client import Database
 from dimagi.ext.couchdbkit import Document
@@ -6,9 +8,6 @@ from dimagi.utils.chunked import chunked
 from dimagi.utils.couch.bulk import get_docs
 from requests.exceptions import RequestException
 from time import sleep
-
-from dimagi.utils.safe_iterator import safe_generator
-
 
 class DocTypeMismatchException(Exception):
     pass
@@ -61,14 +60,59 @@ def get_view_names(database):
     return views
 
 
-@safe_generator
+class WrappedGenerator(object):
+    def __init__(self, iterator_factory):
+        self._iterator_factory = iterator_factory
+
+    def __iter__(self):
+        return self._iterator_factory()
+
+
+def multi_use_generator(fn):
+    """
+    Use this decorator on a function that returns a generator to instead return an iterable that calls the wrapped
+    function each time its __iter__ function is called.
+
+    This allows the return value of the function to be iterated over multiple times, starting from the beginning
+    each time. HOWEVER: If the wrapped function has side effects, those side effects will be enacted each time the
+    return value of the decorated function is iterated.
+
+    Example usage:
+
+    >>> def my_generator():
+    >>>     return (x for x in range(3))
+    >>> foo = my_generator()
+    >>> list(foo)
+    [0, 1, 2]
+    >>> list(foo)
+    []
+
+    But with the decorator:
+
+    >>> @multi_use_generator
+    >>> def my_generator():
+    >>>     return (x for x in range(3))
+    >>> foo = my_generator()
+    >>> list(foo)
+    [0, 1, 2]
+    >>> list(foo)
+    [0, 1, 2]
+    """
+
+    @wraps
+    def wrapped(*args, **kwargs):
+        return WrappedGenerator(lambda: fn(*args, **kwargs))
+    return wrapped
+
+
+@multi_use_generator
 def iter_docs(database, ids, chunksize=100, **query_params):
     for doc_ids in chunked(ids, chunksize):
         for doc in get_docs(database, keys=doc_ids, **query_params):
             yield doc
 
 
-@safe_generator
+@multi_use_generator
 def iter_docs_with_retry(database, ids, chunksize=100, max_attempts=5, **query_params):
     """
     A version of iter_docs that retries fetching documents if the connection

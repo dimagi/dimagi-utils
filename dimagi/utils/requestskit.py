@@ -1,5 +1,5 @@
 from __future__ import print_function
-import urlparse
+from six.moves.urllib.parse import urlsplit
 from couchdbkit import CouchdbResource
 from restkit import Client
 import requests
@@ -7,7 +7,7 @@ from simplejson import JSONDecodeError
 
 
 def get_auth(url):
-    u = urlparse.urlsplit(url)
+    u = urlsplit(url)
     return (u.username, u.password) if u.username else None
 
 

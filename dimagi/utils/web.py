@@ -2,21 +2,26 @@
 # vim: ai ts=4 sts=4 et sw=4
 
 from __future__ import absolute_import
+import json
 import os
 import re
 import traceback
 import sys
+import six
 from django.conf import settings
 from django.http import HttpResponse
 from django.template import RequestContext
 from django.shortcuts import render_to_response as django_r_to_r
 from django.core.paginator import Paginator, EmptyPage, InvalidPage
-import json
-from django.utils.encoding import force_unicode
 from django.utils.functional import Promise
 from dimagi.utils.parsing import json_format_datetime
 from datetime import date, datetime, time
 from decimal import Decimal
+
+if six.PY3:
+    from django.utils.encoding import force_text
+else:
+    from django.utils.encoding import force_unicode as force_text
 
 
 def get_url_base():
@@ -184,7 +189,7 @@ def json_handler(obj):
     elif isinstance(obj, Decimal):
         return float(obj) # warning, potential loss of precision
     elif isinstance(obj, Promise):
-        return force_unicode(obj)  # to support ugettext_lazy
+        return force_text(obj)  # to support ugettext_lazy
     else:
         return json.JSONEncoder().default(obj)
 

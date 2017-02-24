@@ -127,6 +127,7 @@ def today_or_tomorrow(date, inclusive=True):
     today = datetime.datetime.combine(datetime.datetime.today(), datetime.time())
     if isinstance(date, datetime.date):
         today = today.date()
+        date = date.date()  # in case it was a datetime
     day_after_tomorrow = today + datetime.timedelta(days=2)
 
     return today <= date + datetime.timedelta(days=1 if inclusive else 0) < day_after_tomorrow

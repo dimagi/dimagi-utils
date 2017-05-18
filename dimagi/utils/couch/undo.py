@@ -18,7 +18,7 @@ class DeleteDocRecord(DeleteRecord):
         undo_delete(doc)
 
 
-class UndoableDocument(Document):
+class UndoableMixin(object):
     def soft_delete(self, domain_included=True):
         if not self.doc_type.endswith(DELETED_SUFFIX):
             self.doc_type = get_deleted_doc_type(self)

@@ -44,7 +44,7 @@ class CouchTransaction(object):
         self.docs_to_save = defaultdict(dict)
 
     def delete(self, doc):
-        self.docs_to_delete[doc.__class__].append(doc)
+        self.docs_to_delete[doc.__class__.get_db()].append(doc)
 
     def delete_all(self, docs):
         for doc in docs:
@@ -54,22 +54,35 @@ class CouchTransaction(object):
         cls = doc.__class__
         if not doc.get_id:
             doc._id = uuid.uuid4().hex
-        self.docs_to_save[cls][doc.get_id] = doc
+        self.docs_to_save[cls.get_db()][doc.get_id] = doc
 
     def preview_save(self, cls=None):
         if cls:
-            return list(self.docs_to_save[cls].values())
+            return list(self.docs_to_save[cls.get_db()].values())
         else:
             return [doc for _cls in self.docs_to_save
-                            for doc in self.preview_save(cls=_cls)]
+                    for doc in self.preview_save(cls=_cls)]
 
     def commit(self):
-        for cls, docs in self.docs_to_delete.items():
-            cls.bulk_delete(docs)
+        from corehq.apps.cachehq.invalidate import invalidate_document
 
-        for cls, doc_map in self.docs_to_save.items():
-            docs = list(doc_map.values())
-            cls.bulk_save(docs)
+        db_set = set(self.docs_to_delete.keys() + self.docs_to_save.keys())
+
+        for db in db_set:
+            deleted_docs = self.docs_to_delete.get(db, [])
+            for doc in deleted_docs:
+                doc['_deleted'] = True
+
+            save_docs = list(self.docs_to_save[db].values()) if db in self.docs_to_save else []
+            all_docs = deleted_docs + save_docs
+            db.bulk_save(all_docs, all_or_nothing=True)
+
+            # Handle caches
+            for doc in all_docs:
+                if hasattr(doc, 'clear_caches') and callable(doc.clear_caches):
+                    doc.clear_caches()
+                    if '_deleted' in doc and doc['_deleted']:
+                        invalidate_document(doc, deleted=True)
 
     def __enter__(self):
         self.depth += 1

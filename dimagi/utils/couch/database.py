@@ -7,6 +7,8 @@ from dimagi.utils.couch.bulk import get_docs
 from requests.exceptions import RequestException
 from time import sleep
 
+from dimagi.utils.safe_iterator import safe_generator
+
 
 class DocTypeMismatchException(Exception):
     pass
@@ -58,12 +60,15 @@ def get_view_names(database):
             views.append("%s/%s" % (doc.name, view_name))
     return views
 
+
+@safe_generator
 def iter_docs(database, ids, chunksize=100, **query_params):
     for doc_ids in chunked(ids, chunksize):
         for doc in get_docs(database, keys=doc_ids, **query_params):
             yield doc
 
 
+@safe_generator
 def iter_docs_with_retry(database, ids, chunksize=100, max_attempts=5, **query_params):
     """
     A version of iter_docs that retries fetching documents if the connection
